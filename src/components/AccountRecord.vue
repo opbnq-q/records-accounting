@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, effect, ref, watch } from 'vue';
 import Input from './ui/input/Input.vue';
 import Select from './ui/select/Select.vue';
 import SelectContent from './ui/select/SelectContent.vue';
@@ -10,6 +10,8 @@ import SelectTrigger from './ui/select/SelectTrigger.vue';
 import SelectValue from './ui/select/SelectValue.vue';
 import type { IAccountRecord } from '@/entities/account-record.entity';
 import type { ValidationState } from '@/stores/accounts-form.store';
+import Button from './ui/button/Button.vue';
+import { Trash } from 'lucide-vue-next';
 
 const model = defineModel<IAccountRecord>({ required: true })
 const emits = defineEmits<{
@@ -17,6 +19,7 @@ const emits = defineEmits<{
     (e: 'validate-login', login: string, callback: (result: boolean) => void): void
     (e: 'validate-password', password: string, callback: (result: boolean) => void): void
     (e: 'success-validation'): Promise<void>
+    (e: 'remove'): void
 }>()
 
 const tagsValue = model.value.tags.map(el => el.text).join('; ')
@@ -31,14 +34,15 @@ const validationOptions = ref<{
     password: 'none'
 })
 
-watch(validationOptions, async (newVal) => {
+watch(() => validationOptions.value, async (newVal) => {
+    console.log(newVal)
     for (const value of Object.values(newVal)) if (value != 'fulfilled') return;
     await emits('success-validation')
-})
+}, { deep: true })
 </script>
 
 <template>
-    <form class="flex gap-4 w-full">
+    <form class="flex gap-4 w-full" @submit.prevent="emits('remove')">
         <div class="flex gap-4 w-full">
             <Input placeholder="XXX; YYYYYY; A"
                 :class="{ 'border-red-400 border': validationOptions.tags == 'rejected' }" :default-value="tagsValue"
@@ -89,7 +93,11 @@ watch(validationOptions, async (newVal) => {
                         })
                     }" />
             </transition>
+            
         </div>
+        <Button class="w-12" variant="secondary">
+            <Trash></Trash>
+        </Button>
     </form>
 </template>
 <style scoped>

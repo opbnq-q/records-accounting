@@ -2,12 +2,15 @@
 import { useAccountsFormStore } from '@/stores/accounts-form.store';
 import AccountRecord from './AccountRecord.vue';
 import Button from './ui/button/Button.vue';
-import { LucidePlus, Tags } from 'lucide-vue-next';
+import { LucidePlus } from 'lucide-vue-next';
 import Label from './ui/label/Label.vue';
-import { ref } from 'vue';
-import type { IAccountRecord } from '@/entities/account-record.entity';
+import { onMounted } from 'vue';
 
 const accountsFormStore = useAccountsFormStore()
+
+onMounted(() => {
+    accountsFormStore.load()
+})
 </script>
 
 <template>
@@ -15,13 +18,18 @@ const accountsFormStore = useAccountsFormStore()
         <section class="w-full max-w-3xl">
             <h1 class="text-xl font-bold my-4 border-b pb-1.5 text-start opacity-90">Учётные записи</h1>
             <div class="flex flex-col gap-4 my-2">
-                <div class="grid grid-cols-4 gap-4">
+                <div class="grid gap-4" style="grid-template-columns: 1fr 1fr 1fr 1fr 48px;">
                     <Label>Метки</Label>
                     <Label>Тип записи</Label>
                     <Label>Логин</Label>
                     <Label>Пароль</Label>
+                    <div class="w-12"></div>
                 </div>
-                <AccountRecord @validate-login="(login, callback) => {
+                <AccountRecord @remove="() => {
+                    accountsFormStore.delete(record.id)
+                }" @success-validation="() => {
+                    accountsFormStore.saveOrUpdate(record)
+                }" @validate-login="(login, callback) => {
                     if (!login || login.length > 100) return callback(false);
                     return callback(true)
                 }" @validate-tags="(tags, callback) => {
