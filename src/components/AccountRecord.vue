@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Input from './ui/input/Input.vue';
 import Select from './ui/select/Select.vue';
 import SelectContent from './ui/select/SelectContent.vue';
@@ -9,26 +9,56 @@ import SelectLabel from './ui/select/SelectLabel.vue';
 import SelectTrigger from './ui/select/SelectTrigger.vue';
 import SelectValue from './ui/select/SelectValue.vue';
 import type { IAccountRecord } from '@/entities/account-record.entity';
+import type { ValidationState } from '@/stores/accounts-form.store';
 
 const model = defineModel<IAccountRecord>({ required: true })
 const emits = defineEmits<{
-    (e: 'validate-tags', tags: string): boolean
-    (e: 'validate-login', login: string): boolean
-    (e: 'validate-password', password: string): boolean
+    (e: 'validate-tags', tags: string, callback: (result: boolean) => void): void
+    (e: 'validate-login', login: string, callback: (result: boolean) => void): void
+    (e: 'validate-password', password: string, callback: (result: boolean) => void): void
+    (e: 'success-validation'): Promise<void>
 }>()
 
-const tagsValue = ref(model.value.tags.map(el => el.text).join('; '))
+const tagsValue = model.value.tags.map(el => el.text).join('; ')
+
+const validationOptions = ref<{
+    tags: ValidationState
+    login: ValidationState
+    password: ValidationState
+}>({
+    tags: 'none',
+    login: 'none',
+    password: 'none'
+})
+
+watch(validationOptions, async (newVal) => {
+    for (const value of Object.values(newVal)) if (value != 'fulfilled') return;
+    await emits('success-validation')
+})
 </script>
 
 <template>
     <form class="flex gap-4 w-full">
         <div class="flex gap-4 w-full">
-            <Input placeholder="XXX; YYYYYY; A" v-model="tagsValue" @blur="(e: Event) => {
-                const target = e.target as HTMLInputElement
-                model.tags = target.value.split(';').map(el => ({ text: el }))
-                console.log(model)
-            }" />
-            <Select :default-value="'local'" v-model="model.type">
+            <Input placeholder="XXX; YYYYYY; A"
+                :class="{ 'border-red-400 border': validationOptions.tags == 'rejected' }" :default-value="tagsValue"
+                @blur="(e: Event) => {
+                    const target = e.target as HTMLInputElement
+                    model.tags = target.value.split(';').map(el => ({ text: el }))
+                    emits('validate-tags', target.value, result => {
+                        validationOptions.tags = result ? 'fulfilled' : 'rejected'
+                    })
+                }" />
+            <Select :default-value="'local'" v-model="model.type" @update:modelValue="() => {
+                if (model.type == 'LDAP') {
+                    validationOptions.password = 'fulfilled'
+                    model.password = null
+                } else {
+                    emits('validate-password', model.password, result => {
+                        validationOptions.password = result ? 'fulfilled' : 'none'
+                    })
+                }
+            }">
                 <SelectTrigger class="w-full">
                     <SelectValue placeholder="Выберите тип записи" />
                 </SelectTrigger>
@@ -43,10 +73,21 @@ const tagsValue = ref(model.value.tags.map(el => el.text).join('; '))
         </div>
         <div class="flex gap-4 w-full">
             <transition name="fade-input" mode="out-in">
-                <Input key="login" placeholder="Логин" class="w-full" />
+                <Input :class="{ 'border-red-400 border': validationOptions.login == 'rejected' }" key="login"
+                    placeholder="Логин" class="w-full" v-model="model.login" @blur="() => {
+                        emits('validate-login', model.login, result => {
+                            validationOptions.login = result ? 'fulfilled' : 'rejected'
+                        })
+                    }" />
             </transition>
             <transition name="fade-input" mode="out-in">
-                <Input v-show="model.type == 'local'" key="password" placeholder="Пароль" type="password" />
+                <Input v-if="model.type == 'local'"
+                    :class="{ 'border-red-400 border': validationOptions.password == 'rejected' }"
+                    v-model="model.password" key="password" placeholder="Пароль" type="password" @blur="() => {
+                        emits('validate-password', model.password as string, result => {
+                            validationOptions.password = result ? 'fulfilled' : 'rejected'
+                        })
+                    }" />
             </transition>
         </div>
     </form>

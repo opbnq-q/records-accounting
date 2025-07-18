@@ -2,21 +2,12 @@
 import { useAccountsFormStore } from '@/stores/accounts-form.store';
 import AccountRecord from './AccountRecord.vue';
 import Button from './ui/button/Button.vue';
-import { LucidePlus } from 'lucide-vue-next';
+import { LucidePlus, Tags } from 'lucide-vue-next';
 import Label from './ui/label/Label.vue';
 import { ref } from 'vue';
 import type { IAccountRecord } from '@/entities/account-record.entity';
 
 const accountsFormStore = useAccountsFormStore()
-
-const record = ref<IAccountRecord>({
-    id: 1,
-    login: '',
-    password: '',
-    tags: [],
-    type: 'LDAP'
-})
-
 </script>
 
 <template>
@@ -30,12 +21,28 @@ const record = ref<IAccountRecord>({
                     <Label>Логин</Label>
                     <Label>Пароль</Label>
                 </div>
-                <AccountRecord v-model="record"></AccountRecord>
-                <AccountRecord v-model="record"></AccountRecord>
+                <AccountRecord @validate-login="(login, callback) => {
+                    if (!login || login.length > 100) return callback(false);
+                    return callback(true)
+                }" @validate-tags="(tags, callback) => {
+                    if (tags.length > 50) return callback(false);
+                    return callback(true)
+                }" @validate-password="(password, callback) => {
+                    if (record.type == 'LDAP') {
+                        accountsFormStore.records[index].password = null;
+                        return callback(true);
+                    }
+                    if (!password || password.length > 100) return callback(false);
+                    return callback(true);
+                }" v-for="(record, index) in accountsFormStore.records" v-model="accountsFormStore.records[index]"
+                    :key="record.id"></AccountRecord>
+                <h1 class="text-center" v-if="!accountsFormStore.records.length">
+                    Нет данных
+                </h1>
             </div>
         </section>
     </div>
-    <Button class="fixed bottom-4 right-4">
+    <Button @click="accountsFormStore.add" class="fixed bottom-4 right-4">
         <LucidePlus></LucidePlus>
     </Button>
 </template>

@@ -1,9 +1,15 @@
 import type { Tag } from "./tag.entity";
 
-export interface IAccountRecord {
+
+type CommonRecordData = {
     id: number;
     tags: Tag[]
-    type: "local" | "LDAP"
     login: string
-    password: null | string
 }
+export type IAccountRecord = ({
+    type: 'local'
+    password: string
+} | {
+    type: 'LDAP'
+    password: null
+}) & CommonRecordData
