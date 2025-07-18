@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, effect, ref, watch } from 'vue';
+import { computed, effect, onMounted, ref, watch } from 'vue';
 import Input from './ui/input/Input.vue';
 import Select from './ui/select/Select.vue';
 import SelectContent from './ui/select/SelectContent.vue';
@@ -34,10 +34,43 @@ const validationOptions = ref<{
     password: 'none'
 })
 
-watch(() => validationOptions.value, async (newVal) => {
-    console.log(newVal)
-    for (const value of Object.values(newVal)) if (value != 'fulfilled') return;
-    await emits('success-validation')
+
+function validateTags(value: string, omitRejected = false) {
+    emits('validate-tags', value, result => {
+        validationOptions.value.tags = result ? 'fulfilled' : (omitRejected ? 'none' : 'rejected');
+    });
+}
+
+function validateLogin(value: string, omitRejected = false) {
+    emits('validate-login', value, result => {
+        validationOptions.value.login = result ? 'fulfilled' : (omitRejected ? 'none' : 'rejected');
+    });
+}
+
+function validatePassword(value: string, omitRejected = false) {
+    emits('validate-password', value, result => {
+        validationOptions.value.password = result ? 'fulfilled' : (omitRejected ? 'none' : 'rejected');
+    });
+}
+
+validateLogin(model.value.login, true)
+validatePassword(model.value.password ?? 'always valid', true)
+validateTags(model.value.tags.join('; '), true)
+
+
+function checkAllValidAndEmit(newVal: typeof validationOptions.value) {
+    for (const value of Object.values(newVal)) {
+        if (value != 'fulfilled') return;
+    }
+    emits('success-validation');
+}
+
+watch(() => validationOptions.value, newVal => {
+    checkAllValidAndEmit(validationOptions.value)
+}, { deep: true })
+
+watch(() => model.value, () => {
+    checkAllValidAndEmit(validationOptions.value)
 }, { deep: true })
 </script>
 
@@ -52,6 +85,9 @@ watch(() => validationOptions.value, async (newVal) => {
                     emits('validate-tags', target.value, result => {
                         validationOptions.tags = result ? 'fulfilled' : 'rejected'
                     })
+                }" @input="(e: Event) => {
+                    const target = e.target as HTMLInputElement
+                    model.tags = target.value.split(';').map(el => ({ text: el }))
                 }" />
             <Select :default-value="'local'" v-model="model.type" @update:modelValue="() => {
                 if (model.type == 'LDAP') {
@@ -93,7 +129,7 @@ watch(() => validationOptions.value, async (newVal) => {
                         })
                     }" />
             </transition>
-            
+
         </div>
         <Button class="w-12" variant="secondary">
             <Trash></Trash>
