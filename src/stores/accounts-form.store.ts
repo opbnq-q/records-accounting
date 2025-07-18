@@ -1,8 +1,8 @@
-import type { AccountRecord } from "@/entities/account-record.entity";
+import type { IAccountRecord } from "@/entities/account-record.entity";
 import { defineStore } from "pinia";
 
 export interface AccountsFormStoreState {
-    records: AccountRecord[]
+    records: IAccountRecord[]
 }
 
 export const useAccountsFormStore = defineStore('accounts-form', {

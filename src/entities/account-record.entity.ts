@@ -1,6 +1,6 @@
 import type { Tag } from "./tag.entity";
 
-export interface AccountRecord {
+export interface IAccountRecord {
     id: number;
     tags: Tag[]
     type: "local" | "LDAP"
