@@ -5,6 +5,9 @@ import Button from './ui/button/Button.vue';
 import { LucidePlus } from 'lucide-vue-next';
 import Label from './ui/label/Label.vue';
 import { onMounted } from 'vue';
+import Alert from './ui/alert/Alert.vue';
+import AlertTitle from './ui/alert/AlertTitle.vue';
+import AlertDescription from './ui/alert/AlertDescription.vue';
 
 const accountsFormStore = useAccountsFormStore()
 
@@ -16,6 +19,12 @@ onMounted(() => {
 <template>
     <div class="flex flex-col items-center">
         <section class="w-full max-w-3xl">
+            <Alert class="my-4">
+            <AlertTitle>Подсказка</AlertTitle>
+            <AlertDescription class="flex gap-1">
+                Для указания нескольких меток для одной пары логин/пароль используйте разделитель <strong class="text-white">;</strong>
+            </AlertDescription>
+        </Alert>
             <h1 class="text-xl font-bold my-4 border-b pb-1.5 text-start opacity-90">Учётные записи</h1>
             <div class="flex flex-col gap-4 my-2">
                 <div class="grid gap-4" style="grid-template-columns: 1fr 1fr 1fr 1fr 48px;">
