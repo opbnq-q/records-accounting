@@ -1,5 +1,6 @@
+
 <script setup lang="ts">
-import { computed, effect, onMounted, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import Input from './ui/input/Input.vue';
 import Select from './ui/select/Select.vue';
 import SelectContent from './ui/select/SelectContent.vue';
@@ -9,69 +10,68 @@ import SelectLabel from './ui/select/SelectLabel.vue';
 import SelectTrigger from './ui/select/SelectTrigger.vue';
 import SelectValue from './ui/select/SelectValue.vue';
 import type { IAccountRecord } from '@/entities/account-record.entity';
-import type { ValidationState } from '@/stores/accounts-form.store';
 import Button from './ui/button/Button.vue';
 import { Trash } from 'lucide-vue-next';
+import { Validation, type ValidationEmits, type ValidationOptions } from '@/composables/validation.composable';
 
 const model = defineModel<IAccountRecord>({ required: true })
 const emits = defineEmits<{
-    (e: 'validate-tags', tags: string, callback: (result: boolean) => void): void
-    (e: 'validate-login', login: string, callback: (result: boolean) => void): void
-    (e: 'validate-password', password: string, callback: (result: boolean) => void): void
-    (e: 'success-validation'): Promise<void>
     (e: 'remove'): void
-}>()
+} & ValidationEmits>()
 
-const tagsValue = model.value.tags.map(el => el.text).join('; ')
+const tagsValue = model.value.tags.map(el => el.text).join(';')
 
-const validationOptions = ref<{
-    tags: ValidationState
-    login: ValidationState
-    password: ValidationState
-}>({
+const validationOptions = ref<ValidationOptions>({
     tags: 'none',
     login: 'none',
     password: 'none'
 })
 
+const validation = new Validation(emits, validationOptions)
 
-function validateTags(value: string, omitRejected = false) {
-    emits('validate-tags', value, result => {
-        validationOptions.value.tags = result ? 'fulfilled' : (omitRejected ? 'none' : 'rejected');
-    });
+validation.validateLogin(model.value.login, true)
+validation.validatePassword(model.value.password ?? 'always valid', true)
+validation.validateTags(model.value.tags.join(';'), true)
+
+watch([model, validationOptions], () => {
+    validation.checkAllValidAndEmit()
+}, { deep: true })
+
+function handleTagsBlur(e: Event) {
+    const target = e.target as HTMLInputElement
+    model.value.tags = target.value.split(';').map(el => ({ text: el }))
+    emits('validate-tags', target.value, result => {
+        validationOptions.value.tags = result ? 'fulfilled' : 'rejected'
+    })
 }
 
-function validateLogin(value: string, omitRejected = false) {
-    emits('validate-login', value, result => {
-        validationOptions.value.login = result ? 'fulfilled' : (omitRejected ? 'none' : 'rejected');
-    });
+function handleTagsInput(e: Event) {
+    const target = e.target as HTMLInputElement
+    model.value.tags = target.value.split(';').map(el => ({ text: el }))
 }
 
-function validatePassword(value: string, omitRejected = false) {
-    emits('validate-password', value, result => {
-        validationOptions.value.password = result ? 'fulfilled' : (omitRejected ? 'none' : 'rejected');
-    });
-}
-
-validateLogin(model.value.login, true)
-validatePassword(model.value.password ?? 'always valid', true)
-validateTags(model.value.tags.join('; '), true)
-
-
-function checkAllValidAndEmit(newVal: typeof validationOptions.value) {
-    for (const value of Object.values(newVal)) {
-        if (value != 'fulfilled') return;
+function handleTypeUpdate() {
+    if (model.value.type == 'LDAP') {
+        validationOptions.value.password = 'fulfilled'
+        model.value.password = null
+    } else {
+        emits('validate-password', model.value.password, result => {
+            validationOptions.value.password = result ? 'fulfilled' : 'none'
+        })
     }
-    emits('success-validation');
 }
 
-watch(() => validationOptions.value, newVal => {
-    checkAllValidAndEmit(validationOptions.value)
-}, { deep: true })
+function handleLoginBlur() {
+    emits('validate-login', model.value.login, result => {
+        validationOptions.value.login = result ? 'fulfilled' : 'rejected'
+    })
+}
 
-watch(() => model.value, () => {
-    checkAllValidAndEmit(validationOptions.value)
-}, { deep: true })
+function handlePasswordBlur() {
+    emits('validate-password', model.value.password as string, result => {
+        validationOptions.value.password = result ? 'fulfilled' : 'rejected'
+    })
+}
 </script>
 
 <template>
@@ -79,26 +79,8 @@ watch(() => model.value, () => {
         <div class="flex gap-4 w-full">
             <Input placeholder="XXX; YYYYYY; A"
                 :class="{ 'border-red-400 border': validationOptions.tags == 'rejected' }" :default-value="tagsValue"
-                @blur="(e: Event) => {
-                    const target = e.target as HTMLInputElement
-                    model.tags = target.value.split(';').map(el => ({ text: el }))
-                    emits('validate-tags', target.value, result => {
-                        validationOptions.tags = result ? 'fulfilled' : 'rejected'
-                    })
-                }" @input="(e: Event) => {
-                    const target = e.target as HTMLInputElement
-                    model.tags = target.value.split(';').map(el => ({ text: el }))
-                }" />
-            <Select :default-value="'local'" v-model="model.type" @update:modelValue="() => {
-                if (model.type == 'LDAP') {
-                    validationOptions.password = 'fulfilled'
-                    model.password = null
-                } else {
-                    emits('validate-password', model.password, result => {
-                        validationOptions.password = result ? 'fulfilled' : 'none'
-                    })
-                }
-            }">
+                @blur="handleTagsBlur" @input="handleTagsInput" />
+            <Select :default-value="'local'" v-model="model.type" @update:modelValue="handleTypeUpdate">
                 <SelectTrigger class="w-full">
                     <SelectValue placeholder="Выберите тип записи" />
                 </SelectTrigger>
@@ -114,20 +96,12 @@ watch(() => model.value, () => {
         <div class="flex gap-4 w-full">
             <transition name="fade-input" mode="out-in">
                 <Input :class="{ 'border-red-400 border': validationOptions.login == 'rejected' }" key="login"
-                    placeholder="Логин" class="w-full" v-model="model.login" @blur="() => {
-                        emits('validate-login', model.login, result => {
-                            validationOptions.login = result ? 'fulfilled' : 'rejected'
-                        })
-                    }" />
+                    placeholder="Логин" class="w-full" v-model="model.login" @blur="handleLoginBlur" />
             </transition>
             <transition name="fade-input" mode="out-in">
                 <Input v-if="model.type == 'local'"
                     :class="{ 'border-red-400 border': validationOptions.password == 'rejected' }"
-                    v-model="model.password" key="password" placeholder="Пароль" type="password" @blur="() => {
-                        emits('validate-password', model.password as string, result => {
-                            validationOptions.password = result ? 'fulfilled' : 'rejected'
-                        })
-                    }" />
+                    v-model="model.password" key="password" placeholder="Пароль" type="password" @blur="handlePasswordBlur" />
             </transition>
 
         </div>
