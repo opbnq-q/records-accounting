@@ -80,4 +80,6 @@ class IDBService {
     }
 }
 
+export { IDBService };
+
 export const useIDB = () => IDBService.getInstance();

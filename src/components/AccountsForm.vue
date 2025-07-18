@@ -11,33 +11,6 @@ const accountsFormStore = useAccountsFormStore()
 onMounted(() => {
     accountsFormStore.load()
 })
-
-function handleRemove(record: any) {
-    accountsFormStore.delete(record.id)
-}
-
-function handleSuccessValidation(record: any) {
-    accountsFormStore.saveOrUpdate(record)
-}
-
-function handleValidateLogin(login: string, callback: (result: boolean) => void) {
-    if (!login || login.length > 100) return callback(false)
-    return callback(true)
-}
-
-function handleValidateTags(tags: string, callback: (result: boolean) => void) {
-    if (tags.length > 50) return callback(false)
-    return callback(true)
-}
-
-function handleValidatePassword(password: string, callback: (result: boolean) => void, record: any, index: number) {
-    if (record.type == 'LDAP') {
-        accountsFormStore.records[index].password = null
-        return callback(true)
-    }
-    if (!password || password.length > 100) return callback(false)
-    return callback(true)
-}
 </script>
 
 <template>
@@ -52,16 +25,25 @@ function handleValidatePassword(password: string, callback: (result: boolean) =>
                     <Label>Пароль</Label>
                     <div class="w-12"></div>
                 </div>
-                <AccountRecord 
-                    @remove="() => handleRemove(record)"
-                    @success-validation="() => handleSuccessValidation(record)"
-                    @validate-login="(login, callback) => handleValidateLogin(login, callback)"
-                    @validate-tags="(tags, callback) => handleValidateTags(tags, callback)"
-                    @validate-password="(password, callback) => handleValidatePassword(password, callback, record, index)"
-                    v-for="(record, index) in accountsFormStore.records" 
-                    v-model="accountsFormStore.records[index]"
-                    :key="record.id"
-                ></AccountRecord>
+                <AccountRecord @remove="() => {
+                    accountsFormStore.delete(record.id)
+                }" @success-validation="() => {
+                    accountsFormStore.saveOrUpdate(record)
+                }" @validate-login="(login, callback) => {
+                    if (!login || login.length > 100) return callback(false);
+                    return callback(true)
+                }" @validate-tags="(tags, callback) => {
+                    if (tags.length > 50) return callback(false);
+                    return callback(true)
+                }" @validate-password="(password, callback) => {
+                    if (record.type == 'LDAP') {
+                        accountsFormStore.records[index].password = null;
+                        return callback(true);
+                    }
+                    if (!password || password.length > 100) return callback(false);
+                    return callback(true);
+                }" v-for="(record, index) in accountsFormStore.records" v-model="accountsFormStore.records[index]"
+                    :key="record.id"></AccountRecord>
                 <h1 class="text-center" v-if="!accountsFormStore.records.length">
                     Нет данных
                 </h1>

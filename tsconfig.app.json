@@ -15,6 +15,10 @@
       ]
     }
   },
+  "exclude": [
+    "node_modules",
+    "src/__tests__"
+  ],
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
